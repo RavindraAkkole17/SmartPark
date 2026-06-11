@@ -1,0 +1,445 @@
+# SmartPark - Smart Parking Management System
+
+A full-stack React application with Node.js backend for smart parking management with admin and user portals.
+
+## Architecture Overview
+
+```mermaid
+graph TB
+    subgraph Frontend["Frontend (React + Vite)"]
+        A[Auth Pages] --> B[Admin Dashboard]
+        A --> C[User Dashboard]
+        B --> D[Parking Management]
+        B --> E[CCTV & Slot Drawing]
+        B --> F[Booking History]
+        B --> G[Slot Release]
+        C --> H[Parking Discovery]
+        C --> I[Slot Selection & Booking]
+        C --> J[Razorpay Payment]
+        C --> K[Navigation]
+        C --> L[Ticket View]
+    end
+    
+    subgraph Backend["Backend (Node.js + Express)"]
+        M[Auth API] --> N[JWT Middleware]
+        O[Parking API]
+        P[Booking API]
+        Q[Payment API - Razorpay]
+        R[Slot Detection API]
+    end
+    
+    subgraph Database["MongoDB Atlas"]
+        S[Users Collection]
+        T[ParkingAreas Collection]
+        U[Slots Collection]
+        V[Bookings Collection]
+    end
+    
+    Frontend --> Backend --> Database
+```
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Razorpay & MongoDB Credentials**: The provided credentials will be stored in a `.env` file in the backend. Never commit this file to version control.
+
+> [!WARNING]
+> **CCTV Slot Detection**: Real-time object detection on CCTV feeds typically requires a Python/ML backend (e.g., YOLO, OpenCV). For this implementation, we will:
+> - Allow admins to draw slot coordinates on a CCTV frame/image
+> - Simulate occupancy detection with manual toggle + visual overlay
+> - The CCTV URL will render as a video/image feed with drawn slot boundaries
+> - Admins can manually mark slots as occupied/empty, or a future ML service can be integrated
+
+> [!NOTE]
+> **MongoDB Atlas Connection**: We'll construct the connection string using the provided credentials. Ensure the MongoDB Atlas cluster has network access enabled (0.0.0.0/0 for development).
+
+---
+
+## Project Structure
+
+```
+SmartPark/
+├── server/                          # Backend
+│   ├── config/
+│   │   └── db.js                    # MongoDB connection
+│   ├── middleware/
+│   │   └── auth.js                  # JWT auth middleware
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── ParkingArea.js
+│   │   ├── Slot.js
+│   │   └── Booking.js
+│   ├── routes/
+│   │   ├── auth.js
+│   │   ├── parking.js
+│   │   ├── booking.js
+│   │   └── payment.js
+│   ├── .env
+│   ├── package.json
+│   └── server.js
+│
+├── src/                             # Frontend (React)
+│   ├── components/
+│   │   ├── auth/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Register.jsx
+│   │   │   └── Auth.css
+│   │   ├── admin/
+│   │   │   ├── AdminDashboard.jsx
+│   │   │   ├── ParkingForm.jsx
+│   │   │   ├── SlotDrawer.jsx        # Canvas-based slot coordinate drawing
+│   │   │   ├── BookingHistory.jsx
+│   │   │   ├── SlotManager.jsx        # Free/manage slots
+│   │   │   └── Admin.css
+│   │   ├── user/
+│   │   │   ├── UserDashboard.jsx
+│   │   │   ├── ParkingCard.jsx
+│   │   │   ├── ParkingView.jsx        # View slots on CCTV
+│   │   │   ├── SlotBooking.jsx
+│   │   │   ├── Payment.jsx
+│   │   │   ├── Ticket.jsx
+│   │   │   ├── Navigation.jsx
+│   │   │   └── User.css
+│   │   └── common/
+│   │       ├── Navbar.jsx
+│   │       ├── ProtectedRoute.jsx
+│   │       ├── Loader.jsx
+│   │       └── Common.css
+│   ├── context/
+│   │   └── AuthContext.jsx
+│   ├── App.jsx
+│   ├── App.css
+│   ├── index.css
+│   └── main.jsx
+├── package.json
+└── vite.config.js
+```
+
+---
+
+## Database Schema Design
+
+### Users Collection
+```javascript
+{
+  _id: ObjectId,
+  name: String,
+  email: String (unique),
+  password: String (hashed),
+  phone: String,
+  role: "admin" | "user",
+  createdAt: Date
+}
+```
+
+### ParkingAreas Collection
+```javascript
+{
+  _id: ObjectId,
+  adminId: ObjectId (ref: Users),
+  name: String,
+  location: {
+    address: String,
+    lat: Number,
+    lng: Number
+  },
+  cctvUrl: String,
+  totalSlots: Number,
+  pricePerHour: Number,
+  createdAt: Date
+}
+```
+
+### Slots Collection
+```javascript
+{
+  _id: ObjectId,
+  parkingAreaId: ObjectId (ref: ParkingAreas),
+  slotNumber: String,           // e.g., "A1", "A2"
+  coordinates: [                // Polygon coordinates drawn by admin
+    { x: Number, y: Number }
+  ],
+  status: "empty" | "occupied" | "reserved",
+  currentBookingId: ObjectId (ref: Bookings, nullable),
+  updatedAt: Date
+}
+```
+
+### Bookings Collection
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId (ref: Users),
+  parkingAreaId: ObjectId (ref: ParkingAreas),
+  slotId: ObjectId (ref: Slots),
+  bookingDate: Date,            // The date for which slot is booked
+  paymentId: String,            // Razorpay payment ID
+  orderId: String,              // Razorpay order ID
+  amount: Number,
+  status: "confirmed" | "completed" | "cancelled",
+  createdAt: Date
+}
+```
+
+---
+
+## Proposed Changes
+
+### Component 1: Backend Server Setup
+
+#### [NEW] [server/package.json](file:///c:/Users/Lenovo/Desktop/SmartPark/server/package.json)
+- Express server dependencies: `express`, `mongoose`, `bcryptjs`, `jsonwebtoken`, `cors`, `dotenv`, `razorpay`
+
+#### [NEW] [server/.env](file:///c:/Users/Lenovo/Desktop/SmartPark/server/.env)
+- MongoDB Atlas URI, JWT secret, Razorpay keys
+
+#### [NEW] [server/config/db.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/config/db.js)
+- MongoDB Atlas connection using Mongoose
+
+#### [NEW] [server/server.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/server.js)
+- Express app setup, middleware, route mounting, server start on port 5000
+
+---
+
+### Component 2: Backend Models
+
+#### [NEW] [server/models/User.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/models/User.js)
+- User schema with `name`, `email`, `password` (hashed), `phone`, `role` (admin/user)
+
+#### [NEW] [server/models/ParkingArea.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/models/ParkingArea.js)
+- Parking area schema with location (lat/lng), CCTV URL, pricing
+
+#### [NEW] [server/models/Slot.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/models/Slot.js)
+- Slot schema with polygon coordinates, status tracking
+
+#### [NEW] [server/models/Booking.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/models/Booking.js)
+- Booking schema with payment details, date, status
+
+---
+
+### Component 3: Backend Auth & Middleware
+
+#### [NEW] [server/middleware/auth.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/middleware/auth.js)
+- JWT verification middleware
+- Role-based access control (admin vs user)
+
+#### [NEW] [server/routes/auth.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/routes/auth.js)
+- `POST /api/auth/register` - Register user/admin
+- `POST /api/auth/login` - Login with JWT token
+- `GET /api/auth/me` - Get current user
+
+---
+
+### Component 4: Backend Parking & Booking APIs
+
+#### [NEW] [server/routes/parking.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/routes/parking.js)
+- `POST /api/parking` - Create parking area (admin only)
+- `GET /api/parking` - List all parking areas (with available slot counts)
+- `GET /api/parking/:id` - Get parking area with slots
+- `PUT /api/parking/:id` - Update parking area (admin only)
+- `POST /api/parking/:id/slots` - Add/update slot coordinates (admin only)
+- `PUT /api/parking/:id/slots/:slotId/free` - Free a reserved slot (admin only)
+
+#### [NEW] [server/routes/booking.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/routes/booking.js)
+- `POST /api/booking` - Create booking (user)
+- `GET /api/booking/my` - Get user's bookings
+- `GET /api/booking/parking/:parkingId` - Get parking area bookings (admin)
+
+#### [NEW] [server/routes/payment.js](file:///c:/Users/Lenovo/Desktop/SmartPark/server/routes/payment.js)
+- `POST /api/payment/create-order` - Create Razorpay order
+- `POST /api/payment/verify` - Verify payment signature
+
+---
+
+### Component 5: Frontend - Authentication
+
+#### [NEW] [src/context/AuthContext.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/context/AuthContext.jsx)
+- React Context for auth state management
+- Login, logout, register functions
+- JWT token storage in localStorage
+- Auto-redirect based on role
+
+#### [NEW] [src/components/auth/Login.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/auth/Login.jsx)
+- Beautiful login form with role selection (admin/user)
+- Glassmorphism card design with gradient background
+- Form validation, error handling
+
+#### [NEW] [src/components/auth/Register.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/auth/Register.jsx)
+- Registration form with name, email, password, phone, role
+- Matching design with login page
+
+#### [NEW] [src/components/auth/Auth.css](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/auth/Auth.css)
+- Premium auth page styling with animated gradients
+
+---
+
+### Component 6: Frontend - Admin Portal
+
+#### [NEW] [src/components/admin/AdminDashboard.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/admin/AdminDashboard.jsx)
+- Admin overview with stats (total slots, bookings, revenue)
+- Sidebar navigation to sub-pages
+- List of admin's parking areas
+
+#### [NEW] [src/components/admin/ParkingForm.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/admin/ParkingForm.jsx)
+- Form to create/edit parking area (name, location, CCTV URL, price)
+- Map picker for location coordinates (using Leaflet/OpenStreetMap)
+
+#### [NEW] [src/components/admin/SlotDrawer.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/admin/SlotDrawer.jsx)
+- Canvas overlay on CCTV feed image/frame
+- Click-to-draw polygon coordinates for each slot
+- Label assignment for slots (A1, A2, etc.)
+- Save coordinates to backend
+
+#### [NEW] [src/components/admin/BookingHistory.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/admin/BookingHistory.jsx)
+- Table view of all bookings for admin's parking area
+- Filter by date, status
+- User details, payment info
+
+#### [NEW] [src/components/admin/SlotManager.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/admin/SlotManager.jsx)
+- Visual grid of all slots with status indicators
+- "Free Slot" button for reserved slots
+- Real-time status updates
+
+#### [NEW] [src/components/admin/Admin.css](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/admin/Admin.css)
+- Premium dark-themed admin dashboard styling
+
+---
+
+### Component 7: Frontend - User Portal
+
+#### [NEW] [src/components/user/UserDashboard.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/UserDashboard.jsx)
+- Grid of parking area cards
+- Search and filter functionality
+- Each card shows: name, location, available slots count
+
+#### [NEW] [src/components/user/ParkingCard.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/ParkingCard.jsx)
+- Attractive card with parking name, location, slot availability
+- Color-coded availability indicator
+- Click to view parking details
+
+#### [NEW] [src/components/user/ParkingView.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/ParkingView.jsx)
+- CCTV feed display with slot overlays (using Canvas)
+- Color-coded slots: Green (empty), Red (occupied), Gray (reserved)
+- Click on empty slot to initiate booking
+- BookMyShow-style slot map
+
+#### [NEW] [src/components/user/SlotBooking.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/SlotBooking.jsx)
+- Date picker for pre-booking
+- Slot details display
+- Proceed to payment button
+
+#### [NEW] [src/components/user/Payment.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/Payment.jsx)
+- Razorpay checkout integration
+- Order summary before payment
+- Payment success/failure handling
+
+#### [NEW] [src/components/user/Ticket.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/Ticket.jsx)
+- Beautiful booking confirmation ticket
+- Slot details, user details, booking date
+- Dummy QR code (generated using canvas/library)
+- Download/print option
+
+#### [NEW] [src/components/user/Navigation.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/Navigation.jsx)
+- Integration with Google Maps / OpenStreetMap
+- Show route from user's current location to parking area
+- "Get Directions" button that opens Google Maps
+
+#### [NEW] [src/components/user/User.css](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/user/User.css)
+- Premium user portal styling
+
+---
+
+### Component 8: Frontend - Common & App Setup
+
+#### [NEW] [src/components/common/Navbar.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/common/Navbar.jsx)
+- Responsive navigation bar
+- Role-based menu items
+- User avatar, logout button
+- SmartPark branding
+
+#### [NEW] [src/components/common/ProtectedRoute.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/common/ProtectedRoute.jsx)
+- Route guard component for authenticated routes
+- Role-based access (admin-only, user-only)
+
+#### [NEW] [src/components/common/Loader.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/components/common/Loader.jsx)
+- Animated loading spinner
+
+#### [MODIFY] [App.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/App.jsx)
+- React Router setup with all routes
+- AuthContext provider wrapping
+- Route definitions for admin and user portals
+
+#### [MODIFY] [App.css](file:///c:/Users/Lenovo/Desktop/SmartPark/src/App.css)
+- Global app styles
+
+#### [MODIFY] [index.css](file:///c:/Users/Lenovo/Desktop/SmartPark/src/index.css)
+- Design system tokens, CSS variables, base styles
+
+#### [MODIFY] [main.jsx](file:///c:/Users/Lenovo/Desktop/SmartPark/src/main.jsx)
+- Add BrowserRouter wrapper
+
+#### [MODIFY] [package.json](file:///c:/Users/Lenovo/Desktop/SmartPark/package.json)
+- Add frontend dependencies: `react-router-dom`, `axios`, `qrcode.react`, `leaflet`, `react-leaflet`
+
+#### [MODIFY] [vite.config.js](file:///c:/Users/Lenovo/Desktop/SmartPark/vite.config.js)
+- Add proxy config for backend API (port 5000)
+
+---
+
+## Key Features Summary
+
+| Feature | Admin | User |
+|---------|-------|------|
+| Authentication | ✅ Login/Register as Admin | ✅ Login/Register as User |
+| Parking Management | ✅ Create/Edit parking areas | ✅ Browse parking areas |
+| CCTV Integration | ✅ Add CCTV URL | ✅ View CCTV with slot overlay |
+| Slot Drawing | ✅ Draw slot boundaries on canvas | ✅ See color-coded slots |
+| Booking | ✅ View booking history | ✅ Pre-book slots with date picker |
+| Payment | ✅ View payment records | ✅ Pay via Razorpay |
+| Slot Management | ✅ Free reserved slots | ✅ See real-time slot status |
+| Navigation | — | ✅ Get directions to parking |
+| Ticket | — | ✅ View/download booking ticket with QR |
+
+## Design Language
+
+- **Theme**: Dark mode with vibrant accent colors (blue/purple gradients)
+- **Cards**: Glassmorphism effects with subtle backdrop blur
+- **Animations**: Smooth transitions, hover scale effects, loading shimmer
+- **Typography**: Google Fonts (Inter or Outfit)
+- **Slot Colors**: 🟢 Green = Empty, 🔴 Red = Occupied, ⬜ Gray = Reserved
+- **Color Palette**: 
+  - Primary: `#6C5CE7` (Purple)
+  - Secondary: `#00CEC9` (Teal)
+  - Accent: `#FD79A8` (Pink)
+  - Background: `#0a0a1a` (Dark)
+  - Surface: `#1a1a2e` (Dark Card)
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **CCTV Feed**: Should the CCTV URL be a live video stream (RTSP/HLS), a static image URL, or a webcam feed? For the MVP, I'll use an image/video URL that the admin can paste, and overlay slot drawings on top of it using HTML Canvas.
+
+> [!NOTE]
+> **Slot Detection**: Full AI-based slot detection (using computer vision) requires a Python ML backend. For this version, slot status will be managed via:
+> 1. Admin manually marks slots occupied/empty
+> 2. Pre-booked slots auto-marked as "reserved"
+> 3. Future: ML service integration point is provided
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Verify backend server starts without errors
+- Test all API endpoints using the browser
+- Verify MongoDB connection
+- Test Razorpay payment flow in test mode
+
+### Manual Verification (Browser Testing)
+1. Register as admin → Create parking area → Draw slots → View dashboard
+2. Register as user → Browse parking → Select slot → Make payment → View ticket
+3. Admin frees slot → Verify user sees it as available
+4. Test navigation feature
+5. Verify responsive design on different screen sizes
