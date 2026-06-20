@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"cd server && npm run dev\"",
-    "start": "concurrently \"vite\" \"cd server && npm run dev\"",
+    "dev": "concurrently \"vite\" \"mvn -f server-java spring-boot:run\"",
+    "start": "concurrently \"vite\" \"mvn -f server-java spring-boot:run\"",
+    "dev-node": "concurrently \"vite\" \"cd server && npm run dev\"",
+    "backend": "mvn -f server-java spring-boot:run",
+    "backend-node": "cd server && npm run dev",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

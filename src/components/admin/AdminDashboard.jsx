@@ -11,36 +11,28 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalSlots: 0, totalBookings: 0, totalRevenue: 0, occupiedSlots: 0 });
 
-  useEffect(() => {
-    fetchParkingAreas();
-  }, []);
+  useEffect(() => { fetchParkingAreas(); }, []);
 
   const fetchParkingAreas = async () => {
     try {
       const res = await axios.get('/api/parking/my');
       setParkingAreas(res.data);
-      
-      // Calculate stats
-      const totalSlots = res.data.reduce((acc, area) => acc + area.totalSlots, 0);
-      const occupiedSlots = res.data.reduce((acc, area) => acc + (area.occupiedSlots || 0), 0);
-      const reservedSlots = res.data.reduce((acc, area) => acc + (area.reservedSlots || 0), 0);
-      
-      // Fetch all bookings for revenue
-      let totalBookings = 0;
-      let totalRevenue = 0;
+
+      const totalSlots    = res.data.reduce((a, p) => a + p.totalSlots, 0);
+      const occupiedSlots = res.data.reduce((a, p) => a + (p.occupiedSlots || 0) + (p.reservedSlots || 0), 0);
+
+      let totalBookings = 0, totalRevenue = 0;
       for (const area of res.data) {
         try {
-          const bookingRes = await axios.get(`/api/booking/parking/${area._id}`);
-          totalBookings += bookingRes.data.length;
-          totalRevenue += bookingRes.data.reduce((acc, b) => acc + (b.amount || 0), 0);
-        } catch (e) {
-          // ignore
-        }
+          const br = await axios.get(`/api/booking/parking/${area._id}`);
+          totalBookings += br.data.length;
+          totalRevenue  += br.data.reduce((a, b) => a + (b.amount || 0), 0);
+        } catch {}
       }
-      
-      setStats({ totalSlots, totalBookings, totalRevenue, occupiedSlots: occupiedSlots + reservedSlots });
-    } catch (error) {
-      console.error('Failed to fetch parking areas:', error);
+
+      setStats({ totalSlots, totalBookings, totalRevenue, occupiedSlots });
+    } catch (err) {
+      console.error('Failed to fetch parking areas:', err);
     } finally {
       setLoading(false);
     }
@@ -53,62 +45,62 @@ const AdminDashboard = () => {
           <div className="spinner-ring"></div>
           <div className="spinner-ring"></div>
         </div>
-        <p>Loading dashboard...</p>
+        <p>Loading dashboard</p>
       </div>
     );
   }
 
   return (
     <div className="admin-dashboard">
-      <div className="container">
-        <div className="dashboard-header fade-in">
+
+      {/* Carbon strip header */}
+      <div className="dashboard-strip">
+        <div className="dashboard-strip-inner">
           <div>
-            <h1 className="dashboard-title">
-              Welcome back, <span className="highlight">{user?.name}</span> 👋
-            </h1>
-            <p className="dashboard-subtitle">Manage your parking areas and monitor bookings</p>
+            <h1 className="dashboard-title">{user?.name}</h1>
+            <p className="dashboard-subtitle">Admin Dashboard · Parking Management</p>
           </div>
-          <Link to="/admin/parking/new" className="btn btn-primary" id="add-parking-btn">
-            ➕ Add Parking Area
+          <Link to="/admin/parking/new" className="btn btn-secondary" id="add-parking-btn">
+            + Add Parking Area
           </Link>
         </div>
+      </div>
 
-        {/* Stats Grid */}
+      <div className="dashboard-content">
+
+        {/* Stats grid (Fog) */}
         <div className="stats-grid fade-in">
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(108, 92, 231, 0.15)' }}>🅿️</div>
             <div className="stat-value">{parkingAreas.length}</div>
             <div className="stat-label">Parking Areas</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(0, 206, 201, 0.15)' }}>🚗</div>
             <div className="stat-value">{stats.totalSlots}</div>
             <div className="stat-label">Total Slots</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(253, 121, 168, 0.15)' }}>🎫</div>
             <div className="stat-value">{stats.totalBookings}</div>
-            <div className="stat-label">Total Bookings</div>
+            <div className="stat-label">Bookings</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(0, 184, 148, 0.15)' }}>💰</div>
             <div className="stat-value">₹{stats.totalRevenue}</div>
             <div className="stat-label">Revenue</div>
           </div>
         </div>
 
-        {/* Parking Areas List */}
+        {/* Section header */}
         <div className="section-header">
           <h2>Your Parking Areas</h2>
+          <span className="result-count">{parkingAreas.length} areas</span>
         </div>
 
         {parkingAreas.length === 0 ? (
           <div className="empty-state fade-in">
-            <div className="empty-icon">🏗️</div>
-            <h3>No Parking Areas Yet</h3>
-            <p>Create your first parking area to start managing slots and bookings</p>
+            <div className="empty-icon">P</div>
+            <h3>No Parking Areas</h3>
+            <p>Create your first parking area to start managing slots and bookings.</p>
             <Link to="/admin/parking/new" className="btn btn-primary">
-              ➕ Create Parking Area
+              Add Parking Area →
             </Link>
           </div>
         ) : (
@@ -116,14 +108,15 @@ const AdminDashboard = () => {
             {parkingAreas.map((area, index) => (
               <div
                 key={area._id}
-                className="admin-parking-card glass-card fade-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
+                className="admin-parking-card fade-in"
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <div className="apc-header">
-                  <div className="apc-icon">🏢</div>
                   <div className="apc-info">
                     <h3>{area.name}</h3>
-                    <p className="apc-location">📍 {area.location?.address || 'No address'}</p>
+                    <p className="apc-location">
+                      {area.location?.address || 'No address provided'}
+                    </p>
                   </div>
                 </div>
 
@@ -146,28 +139,26 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="apc-price">
-                  <span>₹{area.pricePerHour}/hr</span>
-                </div>
+                <div className="apc-price">₹{area.pricePerHour} per hour</div>
 
                 <div className="apc-actions">
                   <button
                     onClick={() => navigate(`/admin/parking/${area._id}/manage`)}
                     className="btn btn-primary btn-sm"
                   >
-                    🎨 Manage Slots
+                    Manage Slots
                   </button>
                   <button
                     onClick={() => navigate(`/admin/parking/${area._id}/bookings`)}
                     className="btn btn-secondary btn-sm"
                   >
-                    📋 Bookings
+                    Bookings
                   </button>
                   <button
                     onClick={() => navigate(`/admin/parking/${area._id}/edit`)}
                     className="btn btn-outline btn-sm"
                   >
-                    ✏️ Edit
+                    Edit
                   </button>
                 </div>
               </div>

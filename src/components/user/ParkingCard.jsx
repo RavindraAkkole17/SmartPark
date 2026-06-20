@@ -1,75 +1,97 @@
+import { useState, useEffect } from 'react';
 import './User.css';
 
 const ParkingCard = ({ area, onClick, delay = 0 }) => {
-  const availabilityPercentage = area.totalSlots > 0
-    ? Math.round((area.availableSlots / area.totalSlots) * 100)
-    : 0;
+  const total     = area.totalSlots || 0;
+  const available = area.availableSlots || 0;
+  const pct       = total > 0 ? Math.round((available / total) * 100) : 0;
+  const level     = pct > 60 ? 'high' : pct > 20 ? 'medium' : 'low';
 
-  const getAvailabilityColor = () => {
-    if (availabilityPercentage > 60) return 'high';
-    if (availabilityPercentage > 20) return 'medium';
-    return 'low';
+  const [hasError, setHasError] = useState(false);
+
+  // Helper to extract actual image URL from Google Images search/redirect links
+  const cleanImageUrl = (url) => {
+    if (!url) return '';
+    try {
+      if (url.includes('imgurl=')) {
+        const match = url.match(/imgurl=([^&]+)/);
+        if (match && match[1]) {
+          return decodeURIComponent(match[1]);
+        }
+      }
+      const parsed = new URL(url);
+      if (parsed.hostname.includes('google.') && parsed.pathname.includes('/imgres')) {
+        const imgurl = parsed.searchParams.get('imgurl');
+        if (imgurl) return imgurl;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return url;
   };
+
+  const rawUrl = area.image || area.cctvUrl;
+  const imageUrl = cleanImageUrl(rawUrl);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [imageUrl]);
 
   return (
     <div
-      className="parking-card glass-card fade-in"
+      className="parking-card fade-in"
       onClick={onClick}
       style={{ animationDelay: `${delay}s`, cursor: 'pointer' }}
       id={`parking-card-${area._id}`}
     >
-      {/* Card Header Image */}
+      {/* Image */}
       <div className="pc-image">
-        {area.image || area.cctvUrl ? (
-          <img src={area.image || area.cctvUrl} alt={area.name} onError={(e) => { e.target.style.display = 'none'; }} />
-        ) : null}
-        <div className="pc-image-overlay">
-          <span className="pc-price-tag">₹{area.pricePerHour}/hr</span>
-        </div>
+        {(imageUrl && !hasError) ? (
+          <img
+            src={imageUrl}
+            alt={area.name}
+            onError={() => setHasError(true)}
+          />
+        ) : (
+          <div className="pc-no-image">P</div>
+        )}
+        <span className="pc-price-tag">₹{area.pricePerHour}/hr</span>
       </div>
 
-      {/* Card Body */}
+      {/* Body */}
       <div className="pc-body">
         <h3 className="pc-name">{area.name}</h3>
-        <p className="pc-location">
-          📍 {area.location?.address || 'Location not specified'}
-        </p>
+        <p className="pc-location">{area.location?.address || 'Location not specified'}</p>
 
-        {/* Availability Bar */}
+        {/* Availability bar */}
         <div className="pc-availability">
           <div className="pc-avail-header">
             <span className="pc-avail-label">Availability</span>
-            <span className={`pc-avail-value ${getAvailabilityColor()}`}>
-              {area.availableSlots || 0} / {area.totalSlots || 0}
-            </span>
+            <span className="pc-avail-value">{available}/{total}</span>
           </div>
           <div className="pc-avail-bar">
-            <div
-              className={`pc-avail-fill ${getAvailabilityColor()}`}
-              style={{ width: `${availabilityPercentage}%` }}
-            ></div>
+            <div className={`pc-avail-fill ${level}`} style={{ width: `${pct}%` }} />
           </div>
         </div>
 
-        {/* Slot Status */}
+        {/* Slot counts */}
         <div className="pc-slots-row">
           <div className="pc-slot-indicator">
-            <span className="indicator-dot" style={{ background: 'var(--success)' }}></span>
-            <span>{area.availableSlots || 0} Empty</span>
+            <span className="indicator-dot" style={{ background: 'var(--slot-empty)' }}></span>
+            <span>{available} Free</span>
           </div>
           <div className="pc-slot-indicator">
-            <span className="indicator-dot" style={{ background: 'var(--danger)' }}></span>
-            <span>{area.occupiedSlots || 0} Occupied</span>
+            <span className="indicator-dot" style={{ background: 'var(--slot-occupied)' }}></span>
+            <span>{area.occupiedSlots || 0} Taken</span>
           </div>
           <div className="pc-slot-indicator">
-            <span className="indicator-dot" style={{ background: 'var(--text-muted)' }}></span>
+            <span className="indicator-dot" style={{ background: 'var(--slot-reserved)' }}></span>
             <span>{area.reservedSlots || 0} Reserved</span>
           </div>
         </div>
 
-        {/* CTA */}
-        <button className="btn btn-primary pc-btn">
-          🅿️ View Slots & Book
+        <button className="btn btn-primary btn-sm pc-btn">
+          View &amp; Book →
         </button>
       </div>
     </div>

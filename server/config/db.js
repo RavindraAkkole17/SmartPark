@@ -1,6 +1,13 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Always resolve .env from the server/ directory, regardless of where the process starts
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const connectDB = async () => {
   try {

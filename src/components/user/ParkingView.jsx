@@ -7,7 +7,6 @@ import './User.css';
 const ParkingView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [parkingArea, setParkingArea] = useState(null);
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -16,7 +15,6 @@ const ParkingView = () => {
 
   useEffect(() => {
     fetchParkingArea();
-    // Auto-refresh slots every 3 seconds to get live AI updates from admin
     const interval = setInterval(fetchParkingArea, 3000);
     return () => clearInterval(interval);
   }, [id]);
@@ -25,25 +23,21 @@ const ParkingView = () => {
     try {
       const res = await axios.get(`/api/parking/${id}`);
       setParkingArea(res.data);
-      
-      // Sort slots by slotNumber (e.g., S1, S2, S3)
-      const sortedSlots = (res.data.slots || []).sort((a, b) => {
-        const numA = parseInt(a.slotNumber.replace(/[^0-9]/g, '')) || 0;
-        const numB = parseInt(b.slotNumber.replace(/[^0-9]/g, '')) || 0;
-        return numA - numB;
+      const sorted = (res.data.slots || []).sort((a, b) => {
+        const nA = parseInt(a.slotNumber.replace(/\D/g, '')) || 0;
+        const nB = parseInt(b.slotNumber.replace(/\D/g, '')) || 0;
+        return nA - nB;
       });
-      setSlots(sortedSlots);
-    } catch (error) {
-      console.error('Failed to fetch parking area:', error);
+      setSlots(sorted);
+    } catch (err) {
+      console.error('Failed to fetch parking area:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSlotClick = (slot) => {
-    if (slot.status === 'empty') {
-      setSelectedSlot(slot);
-    }
+    if (slot.status === 'empty') setSelectedSlot(slot);
   };
 
   const openNavigation = () => {
@@ -54,112 +48,123 @@ const ParkingView = () => {
   };
 
   if (loading && !parkingArea) {
-    return <div className="user-loading"><p>Loading parking view...</p></div>;
+    return (
+      <div className="user-loading">
+        <div className="loader-spinner">
+          <div className="spinner-ring"></div>
+          <div className="spinner-ring"></div>
+        </div>
+        <p>Loading parking view</p>
+      </div>
+    );
   }
 
-  if (!parkingArea) {
-    return <div className="user-loading"><p>Parking area not found</p></div>;
-  }
+  if (!parkingArea) return <div className="user-loading"><p>Parking area not found.</p></div>;
 
-  const availableSlots = slots.filter(s => s.status === 'empty').length;
+  const available = slots.filter(s => s.status === 'empty').length;
+  const occupied  = slots.filter(s => s.status === 'occupied').length;
 
   return (
-    <div className="parking-view-page-clean">
-      <div className="pv-clean-container">
-        {/* Header matching referral image */}
-        <div className="pv-clean-header">
-          <button className="pv-back-icon" onClick={() => navigate('/dashboard')}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+    <div className="parking-view">
+
+      {/* Carbon strip header */}
+      <div className="pv-strip">
+        <div className="pv-strip-inner">
+          <button className="pv-back" onClick={() => navigate('/dashboard')}>
+            ← Back to Parking Areas
+          </button>
+          <h1 className="pv-title">{parkingArea.name}</h1>
+          <p className="pv-location">{parkingArea.location?.address || 'Location not specified'}</p>
+
+          <div className="pv-meta-row">
+            <div className="pv-meta-item">
+              <span className="pv-meta-label">Price</span>
+              <span className="pv-meta-value">₹{parkingArea.pricePerHour}/hr</span>
+            </div>
+            <div className="pv-meta-item">
+              <span className="pv-meta-label">Available</span>
+              <span className="pv-meta-value">{available}</span>
+            </div>
+            <div className="pv-meta-item">
+              <span className="pv-meta-label">Occupied</span>
+              <span className="pv-meta-value">{occupied}</span>
+            </div>
+            <div className="pv-meta-item">
+              <span className="pv-meta-label">Total</span>
+              <span className="pv-meta-value">{slots.length}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Slot grid */}
+      <div className="pv-body">
+        <div className="slot-legend">
+          <div className="legend-item">
+            <span className="legend-dot empty"></span>
+            <span>Empty — click to select</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-dot" style={{ background: 'var(--color-carbon)' }}></span>
+            <span>Selected</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-dot occupied"></span>
+            <span>Occupied</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-dot reserved"></span>
+            <span>Reserved</span>
+          </div>
+        </div>
+
+        <div className="slot-grid">
+          {slots.map(slot => {
+            const isSelected = selectedSlot?._id === slot._id;
+            let cls = slot.status;
+            if (isSelected) cls = 'selected';
+            return (
+              <button
+                key={slot._id}
+                className={`slot-cell ${cls}`}
+                onClick={() => handleSlotClick(slot)}
+                disabled={slot.status !== 'empty' && !isSelected}
+                title={`Slot ${slot.slotNumber} — ${slot.status}`}
+              >
+                {slot.slotNumber}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="pv-actions">
+          <button
+            className="btn btn-primary btn-lg"
+            onClick={() => setShowBooking(true)}
+            disabled={!selectedSlot}
+          >
+            {selectedSlot
+              ? `Book Slot ${selectedSlot.slotNumber} →`
+              : 'Select a slot above'}
+          </button>
+          <button className="btn btn-secondary" onClick={openNavigation}>
+            Navigate to Parking
           </button>
         </div>
-
-        <div className="pv-clean-content">
-          <h1 className="pv-clean-title">{parkingArea.name}</h1>
-          <p className="pv-clean-meta">Owner: {parkingArea.ownerName || 'Admin'}</p>
-          <p className="pv-clean-meta">Available Slots: {availableSlots}</p>
-
-          <div className="pv-date-selector">
-            <button className="btn-select-date" onClick={() => setShowBooking(true)} disabled={!selectedSlot}>
-              SELECT DATE
-            </button>
-            <span className="pv-date-display">{new Date().toISOString().split('T')[0]}</span>
-          </div>
-
-          <div className="pv-legend">
-            <div className="legend-item">
-              <div className="legend-box empty"></div>
-              <span>Empty</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-box selected"></div>
-              <span>Selected</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-box occupied"></div>
-              <span>Occupied</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-box reserved"></div>
-              <span>Reserved</span>
-            </div>
-          </div>
-
-          {/* Clean Grid of Slots */}
-          <div className="pv-slots-grid">
-            {slots.map(slot => {
-              const isSelected = selectedSlot?._id === slot._id;
-              let slotClass = '';
-              if (isSelected) slotClass = 'selected';
-              else if (slot.status === 'empty') slotClass = 'empty';
-              else if (slot.status === 'occupied') slotClass = 'occupied';
-              else slotClass = 'reserved';
-
-              return (
-                <button
-                  key={slot._id}
-                  className={`pv-slot-box ${slotClass}`}
-                  onClick={() => handleSlotClick(slot)}
-                  disabled={slot.status !== 'empty' && !isSelected}
-                >
-                  {slot.slotNumber}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="pv-action-buttons">
-            <button 
-              className="btn btn-prebook" 
-              onClick={() => setShowBooking(true)}
-              disabled={!selectedSlot}
-            >
-              Pre-Book Slot
-            </button>
-            <button 
-              className="btn btn-navigate" 
-              onClick={openNavigation}
-            >
-              Navigate to Parking
-            </button>
-          </div>
-        </div>
-
-        {/* Slot Booking Modal */}
-        {showBooking && selectedSlot && (
-          <SlotBooking
-            slot={selectedSlot}
-            parkingArea={parkingArea}
-            onClose={() => setShowBooking(false)}
-            onComplete={() => {
-              setShowBooking(false);
-              setSelectedSlot(null);
-              fetchParkingArea();
-            }}
-          />
-        )}
       </div>
+
+      {showBooking && selectedSlot && (
+        <SlotBooking
+          slot={selectedSlot}
+          parkingArea={parkingArea}
+          onClose={() => setShowBooking(false)}
+          onComplete={() => {
+            setShowBooking(false);
+            setSelectedSlot(null);
+            fetchParkingArea();
+          }}
+        />
+      )}
     </div>
   );
 };

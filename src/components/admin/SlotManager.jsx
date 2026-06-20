@@ -192,10 +192,10 @@ const SlotManager = () => {
   return (
     <div className="slot-manager-page">
       <div className="container">
-        <div className="drawer-header fade-in">
-          <button onClick={() => navigate('/admin')} className="back-btn">← Back</button>
-          <h1>🔧 Slot Manager - {parkingArea?.name}</h1>
-          <p>Monitor and manage individual parking slots</p>
+        <div className="sm-header fade-in">
+          <button onClick={() => navigate('/admin')} className="pf-back">← Back</button>
+          <h1 className="sm-title">Slot Manager</h1>
+          <p className="sm-subtitle">{parkingArea?.name} — Monitor and manage individual parking slots.</p>
         </div>
 
         {/* Hidden CCTV feed for AI */}
@@ -212,47 +212,47 @@ const SlotManager = () => {
         {/* Stats */}
         <div className="stats-grid fade-in">
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(0, 184, 148, 0.15)' }}>🟢</div>
+            <div className="stat-icon">◯</div>
             <div className="stat-value">{emptySlots.length}</div>
             <div className="stat-label">Empty</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(225, 112, 85, 0.15)' }}>🔴</div>
+            <div className="stat-icon">●</div>
             <div className="stat-value">{occupiedSlots.length}</div>
             <div className="stat-label">Occupied</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(99, 110, 114, 0.15)' }}>⬜</div>
+            <div className="stat-icon">◧</div>
             <div className="stat-value">{reservedSlots.length}</div>
             <div className="stat-label">Reserved</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon" style={{ background: 'rgba(108, 92, 231, 0.15)' }}>📊</div>
+            <div className="stat-icon">▦</div>
             <div className="stat-value">{slots.length}</div>
             <div className="stat-label">Total</div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="manager-actions fade-in" style={{ justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="manager-actions fade-in" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => navigate(`/admin/parking/${id}/slots`)} className="btn btn-primary">
-              🎨 Draw Slots
+              Draw Slots
             </button>
             <button onClick={() => navigate(`/admin/parking/${id}/bookings`)} className="btn btn-outline">
-              📋 View Bookings
+              View Bookings
             </button>
           </div>
           
           {parkingArea?.cctvUrl && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {lastDetectionStats && <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{lastDetectionStats}</span>}
+              {lastDetectionStats && <span style={{ fontSize: '13px', color: 'var(--color-lead)' }}>{lastDetectionStats}</span>}
               <button 
                 onClick={toggleAiBtn} 
                 className={`btn ${isAiDetecting ? 'btn-danger' : 'btn-secondary'}`}
                 disabled={aiLoading}
               >
-                {aiLoading ? '⏳ Loading AI...' : isAiDetecting ? '⏹️ Stop AI Auto-Detect' : '🤖 Start AI Auto-Detect'}
+                {aiLoading ? 'Loading AI…' : isAiDetecting ? 'Stop AI Detect' : 'Start AI Auto-Detect'}
               </button>
             </div>
           )}
@@ -273,8 +273,8 @@ const SlotManager = () => {
             {slots.map((slot) => (
               <div
                 key={slot._id}
-                className={`manager-slot-card glass-card ${slot.status}`}
-                style={isAiDetecting ? { boxShadow: slot.status === 'occupied' ? '0 0 10px rgba(225,112,85,0.4)' : 'none' } : {}}
+                className={`manager-slot-card ${slot.status}`}
+                style={{ background: 'var(--color-midnight-slate)', border: '1px solid rgba(112,112,125,0.2)', padding: '16px 20px', transition: 'background 0.15s ease' }}
               >
                 <div className="msc-header">
                   <span className={`msc-status-indicator ${slot.status}`}></span>

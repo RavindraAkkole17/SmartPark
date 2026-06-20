@@ -66,10 +66,10 @@ const SlotDrawer = () => {
       ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
     } else {
       // Grid pattern background
-      ctx.fillStyle = '#1a1a2e';
+      ctx.fillStyle = '#1e1e2a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      ctx.strokeStyle = 'rgba(108, 92, 231, 0.1)';
+      ctx.strokeStyle = 'rgba(112, 112, 125, 0.15)';
       ctx.lineWidth = 1;
       for (let i = 0; i < canvas.width; i += 40) {
         ctx.beginPath();
@@ -88,8 +88,8 @@ const SlotDrawer = () => {
     // Draw existing slots
     slots.forEach((slot) => {
       if (slot.coordinates && slot.coordinates.length > 0) {
-        const color = slot.status === 'occupied' ? '#e17055' :
-                      slot.status === 'reserved' ? '#636e72' : '#00b894';
+        const color = slot.status === 'occupied' ? '#f87171' :
+                      slot.status === 'reserved' ? '#70707d' : '#4ade80';
         
         ctx.beginPath();
         ctx.moveTo(slot.coordinates[0].x, slot.coordinates[0].y);
@@ -132,7 +132,7 @@ const SlotDrawer = () => {
         if (i > 0) ctx.lineTo(point.x, point.y);
 
         // Draw point markers
-        ctx.fillStyle = '#FD79A8';
+        ctx.fillStyle = '#5266eb';
         ctx.beginPath();
         ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
         ctx.fill();
@@ -144,7 +144,7 @@ const SlotDrawer = () => {
         currentPoints.forEach((point, i) => {
           if (i > 0) ctx.lineTo(point.x, point.y);
         });
-        ctx.strokeStyle = '#FD79A8';
+        ctx.strokeStyle = '#5266eb';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.stroke();
@@ -241,10 +241,10 @@ const SlotDrawer = () => {
   return (
     <div className="slot-drawer-page">
       <div className="container">
-        <div className="drawer-header fade-in">
-          <button onClick={() => navigate('/admin')} className="back-btn">← Back</button>
-          <h1>🎨 Slot Drawer - {parkingArea?.name}</h1>
-          <p>Draw polygon boundaries for each parking slot on the CCTV feed</p>
+        <div className="sd-header fade-in">
+          <button onClick={() => navigate('/admin')} className="pf-back">← Back</button>
+          <h1 className="sd-title">Slot Drawer</h1>
+          <p className="sd-subtitle">{parkingArea?.name} — Draw polygon boundaries for each parking slot on the CCTV feed.</p>
         </div>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -266,21 +266,21 @@ const SlotDrawer = () => {
                 />
                 {!isDrawing ? (
                   <button onClick={startDrawing} className="btn btn-primary btn-sm" id="start-drawing-btn">
-                    ✏️ Start Drawing
+                    Start Drawing
                   </button>
                 ) : (
                   <>
                     <button onClick={finishSlot} className="btn btn-secondary btn-sm" disabled={currentPoints.length < 3}>
-                      ✅ Finish Slot ({currentPoints.length} points)
+                      Finish Slot ({currentPoints.length} pts)
                     </button>
-                    <button onClick={cancelDrawing} className="btn btn-danger btn-sm">
-                      ❌ Cancel
+                    <button onClick={cancelDrawing} className="btn btn-outline btn-sm">
+                      Cancel
                     </button>
                   </>
                 )}
               </div>
               <button onClick={saveSlots} className="btn btn-primary" disabled={saving || slots.length === 0} id="save-slots-btn">
-                {saving ? '💾 Saving...' : `💾 Save All Slots (${slots.length})`}
+                {saving ? 'Saving…' : `Save Slots (${slots.length})`}
               </button>
             </div>
 
@@ -302,17 +302,17 @@ const SlotDrawer = () => {
               />
             </div>
 
-            <div className="slot-legend">
-              <span className="legend-item"><span className="legend-color" style={{background: '#00b894'}}></span> Empty</span>
-              <span className="legend-item"><span className="legend-color" style={{background: '#e17055'}}></span> Occupied</span>
-              <span className="legend-item"><span className="legend-color" style={{background: '#636e72'}}></span> Reserved</span>
-              <span className="legend-item"><span className="legend-color" style={{background: '#FD79A8'}}></span> Drawing</span>
+            <div className="slot-legend" style={{ marginTop: '12px' }}>
+              <div className="legend-item"><span className="legend-dot empty"></span><span>Empty</span></div>
+              <div className="legend-item"><span className="legend-dot occupied"></span><span>Occupied</span></div>
+              <div className="legend-item"><span className="legend-dot reserved"></span><span>Reserved</span></div>
+              <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-mercury-blue)' }}></span><span>Drawing</span></div>
             </div>
           </div>
 
           {/* Slots List */}
-          <div className="slots-panel glass-card">
-            <h3>📋 Slots ({slots.length})</h3>
+          <div className="slots-panel" style={{ background: 'var(--color-midnight-slate)', border: '1px solid rgba(112,112,125,0.2)', padding: '24px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-silver)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Slots ({slots.length})</h3>
             {slots.length === 0 ? (
               <p className="slots-empty">No slots drawn yet. Use the canvas to draw slot boundaries.</p>
             ) : (
